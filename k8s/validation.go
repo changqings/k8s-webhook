@@ -34,7 +34,7 @@ func ValidatingPod(k8sClient *kubernetes.Clientset) http.Handler {
 				}
 
 				if req.Operation == admission_v1.Delete && podCanNotBeDeleted {
-					slog.Info("pod can not be deleted labels allow-delete=false", "name", req.Name, "namespace", req.Namespace)
+					slog.Info("pod can not be deleted with labels allow-delete=false", "name", req.Name, "namespace", req.Namespace)
 					return admission.ValidationResponse(false, "not allow by webhook")
 				}
 				return admission.ValidationResponse(true, "ok")
