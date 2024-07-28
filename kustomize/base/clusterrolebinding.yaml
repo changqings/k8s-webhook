@@ -1,0 +1,49 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8s-webhook
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-webhook
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  verbs:
+  - get
+- apiGroups:
+  - ''
+  resources:
+  - secrets
+  verbs:
+  - get
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  - mutatingwebhookconfigurations
+  verbs:
+  - create
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - clusterissuers
+  - certificates
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-webhook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: k8s-webhook
+subjects:
+- kind: ServiceAccount
+  name: k8s-webhook

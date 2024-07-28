@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	admission_v1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
 	k8s_error "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,14 +15,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-func ValidatingPod() http.Handler {
+func ValidatingPod(k8sClient *kubernetes.Clientset) http.Handler {
 	return &admission.Webhook{
 		Handler: admission.HandlerFunc(
 			func(ctx context.Context, req admission.Request) admission.Response {
-				if req.Namespace == "default" && req.Operation == "delete" {
+				podCanNotBeDeleted := false
+
+				podName := req.Name
+				podNamespace := req.Namespace
+
+				pod, err := k8sClient.CoreV1().Pods(podNamespace).Get(ctx, podName, metav1.GetOptions{})
+				if err != nil {
+					return admission.ValidationResponse(false, "get pod error")
+				}
+
+				if v, ok := pod.Labels["allow-delete"]; ok && v == "false" {
+					podCanNotBeDeleted = true
+				}
+
+				if req.Operation == admission_v1.Delete && podCanNotBeDeleted {
+					slog.Info("pod can not be deleted labels allow-delete=false", "name", req.Name, "namespace", req.Namespace)
 					return admission.ValidationResponse(false, "not allow by webhook")
 				}
-				return admission.ValidationResponse(true, "ok, you can do it")
+				return admission.ValidationResponse(true, "ok")
 			},
 		),
 	}
@@ -42,10 +58,10 @@ func CreateValidatingWebhook(k8sClient *kubernetes.Clientset) error {
 		},
 		Webhooks: []v1.ValidatingWebhook{
 			{
-				Name: webhookServiceName,
+				Name: "pod-webhook.some.cn",
 				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"kubernetes.io/metadata": "default",
+						"kubernetes.io/metadata.name": "default",
 					},
 				},
 				Rules: []v1.RuleWithOperations{
@@ -54,7 +70,7 @@ func CreateValidatingWebhook(k8sClient *kubernetes.Clientset) error {
 							v1.Delete,
 						},
 						Rule: v1.Rule{
-							APIGroups:   []string{"core"},
+							APIGroups:   []string{""},
 							APIVersions: []string{"v1"},
 							Resources:   []string{"pods"},
 						},
@@ -82,12 +98,13 @@ func CreateValidatingWebhook(k8sClient *kubernetes.Clientset) error {
 		Create(context.Background(), &valid_webhook, metav1.CreateOptions{})
 	if err != nil {
 		if k8s_error.IsAlreadyExists(err) {
-			slog.Info("ValidatingWebhookConfiguration already exists, %s.%s", valid_webhook.Name, valid_webhook.Namespace)
+			slog.Info("validatingWebhookConfiguration already exists", "name", valid_webhook.Name, "namespace", valid_webhook.Namespace)
 			return nil
 		} else {
 			return err
 		}
 	}
+	slog.Info("validatingWebhookConfiguration create success", "name", valid_webhook.Name, "namespace", valid_webhook.Namespace)
 
 	return nil
 }

@@ -19,11 +19,12 @@ import (
 )
 
 var (
-	TLSCertDir       = "k8s-tls"
-	CertName         = "cert.crt"
-	KeyName          = "key.crt"
-	WebhookValidPath = "/webhook/validate"
-	webhookNamespace = "default"
+	TLSCertDir        = "k8s-tls"
+	CertName          = "cert.crt"
+	KeyName           = "key.crt"
+	WebhookValidPath  = "/webhook/validate"
+	WebhookMutatePath = "/webhook/mutate"
+	webhookNamespace  = "default"
 
 	TLSPort int32 = 9443
 	//ca

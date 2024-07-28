@@ -26,8 +26,8 @@ spec:
             failureThreshold: 3
             httpGet:
               path: /health_check
-              port: http-check
-              scheme: HTTPS
+              port: 8080
+              scheme: HTTP
             initialDelaySeconds: 10
             periodSeconds: 15
             successThreshold: 1
@@ -36,8 +36,8 @@ spec:
             failureThreshold: 3
             httpGet:
               path: /health_check
-              port: http-check
-              scheme: HTTPS
+              port: 8080
+              scheme: HTTP
             initialDelaySeconds: 5
             periodSeconds: 15
             successThreshold: 1
@@ -54,4 +54,5 @@ spec:
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
+      serviceAccountName: k8s-webhook
       terminationGracePeriodSeconds: 30
