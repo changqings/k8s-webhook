@@ -9,6 +9,7 @@ import (
 
 	admission_v1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8s_error "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -121,4 +122,9 @@ func getCaBundle(k8sClient *kubernetes.Clientset, secretName, secretNamespace st
 		return nil, fmt.Errorf("ca.crt not found in secret %s/%s.Data", secretName, secretNamespace)
 	}
 	return d, nil
+}
+
+func CheckCertCrdExits(client *apiextv1.Clientset) bool {
+	_, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "certificates.cert-manager.io", metav1.GetOptions{})
+	return err == nil
 }
