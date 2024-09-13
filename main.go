@@ -11,6 +11,7 @@ import (
 	"github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
 	k8scrdClient "github.com/changqings/k8scrd/client"
 	"github.com/go-logr/logr"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog/v2"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -22,9 +23,14 @@ func main() {
 	log.SetLogger(klog.LoggerWithName(logr.Logger{}, "k8s-webhook"))
 
 	restConfig := k8scrdClient.GetRestConfig()
-	//
 	k8sC := k8scrdClient.GetClient()
 	certC := versioned.NewForConfigOrDie(restConfig)
+	crdC := apiextv1.NewForConfigOrDie(restConfig)
+
+	// check crd cert
+	if !k8s.CheckCertCrdExits(crdC) {
+		panic("crd cert not found, plase install cert-manager first")
+	}
 
 	if err := k8s.SetUpCertManager(k8sC, certC); err != nil {
 		panic(err)
