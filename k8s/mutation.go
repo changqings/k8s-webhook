@@ -19,7 +19,8 @@ func MutatingPod() http.Handler {
 	return &admission.Webhook{
 		Handler: admission.HandlerFunc(
 			func(ctx context.Context, req admission.Request) admission.Response {
-				if req.AdmissionRequest.Operation == admission_v1.Create {
+				if req.AdmissionRequest.Operation == admission_v1.Create ||
+					req.AdmissionRequest.Operation == admission_v1.Update {
 					slog.Info("create pod patch labels")
 					return admission.Patched(
 						"add label",
