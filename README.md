@@ -1,4 +1,4 @@
-## k8s webhook template, you can use it by simply wirte logical code
+## k8s webhook template, you can use it by simply write logical code
 
 - need cert-manager generate tls cert/key
 

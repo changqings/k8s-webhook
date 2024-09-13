@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"strings"
 
 	admission_v1 "k8s.io/api/admission/v1"
@@ -15,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-func ValidatingPod(k8sClient *kubernetes.Clientset) http.Handler {
+func ValidatingPod(k8sClient *kubernetes.Clientset) *admission.Webhook {
 	return &admission.Webhook{
 		Handler: admission.HandlerFunc(
 			func(ctx context.Context, req admission.Request) admission.Response {

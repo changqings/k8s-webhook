@@ -3,7 +3,6 @@ package k8s
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"strings"
 
 	"gomodules.xyz/jsonpatch/v2"
@@ -15,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-func MutatingPod() http.Handler {
+func MutatingPod() *admission.Webhook {
 	return &admission.Webhook{
 		Handler: admission.HandlerFunc(
 			func(ctx context.Context, req admission.Request) admission.Response {
