@@ -125,5 +125,6 @@ func getCaBundle(k8sClient *kubernetes.Clientset, secretName, secretNamespace st
 
 func CheckCertCrdExits(client *apiextv1.Clientset) bool {
 	_, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "certificates.cert-manager.io", metav1.GetOptions{})
+	slog.Error("check cert crd", "msg", err)
 	return err == nil
 }
