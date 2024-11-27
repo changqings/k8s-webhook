@@ -29,7 +29,7 @@ func main() {
 
 	// check crd cert
 	if !k8s.CheckCertCrdExits(crdC) {
-		panic("crd cert not found, plase install cert-manager first")
+		panic("cert-manager.io crd  not found, plase install cert-manager first")
 	}
 
 	if err := k8s.SetUpCertManager(k8sC, certC); err != nil {

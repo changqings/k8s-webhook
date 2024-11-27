@@ -12,6 +12,7 @@ import (
 	certmanager_v1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cm_metav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8s_error "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -30,7 +31,7 @@ var (
 	//ca
 	caIssuerName  = "selfsigned-issuer"
 	caName        = "selfsigned-ca"
-	caSecretName  = "root-secret"
+	caSecretName  = "root-ca-secret"
 	clusterIssuer = "webhook-issuer"
 	// webhook-cert
 	webhookCertName    = "webhook-cert"
@@ -217,4 +218,26 @@ func checkDirOrCreate(path string) error {
 		}
 	}
 	return nil
+}
+
+func GetCaBundle(k8sClient *kubernetes.Clientset, secretName, secretNamespace string) ([]byte, error) {
+
+	s, err := k8sClient.CoreV1().Secrets(secretNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	d, ok := s.Data["ca.crt"]
+	if !ok {
+		return nil, fmt.Errorf("ca.crt not found in secret %s/%s.Data", secretName, secretNamespace)
+	}
+	return d, nil
+}
+
+func CheckCertCrdExits(client *apiextv1.Clientset) bool {
+	_, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "certificates.cert-manager.io", metav1.GetOptions{})
+	if err != nil {
+		slog.Error("CheckCertCrdExits failed", "error", err)
+	}
+	return err == nil
 }

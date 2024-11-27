@@ -2,13 +2,11 @@ package k8s
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"strings"
 
 	admission_v1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8s_error "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -46,7 +44,7 @@ func ValidatingPod(k8sClient *kubernetes.Clientset) *admission.Webhook {
 func CreateValidatingWebhook(k8sClient *kubernetes.Clientset) error {
 
 	validatingServiceName := strings.Split(webhookServiceName, ".")[0]
-	caCrt, err := getCaBundle(k8sClient, webhookSecretName, webhookNamespace)
+	caCrt, err := GetCaBundle(k8sClient, webhookSecretName, webhookNamespace)
 	if err != nil {
 		return err
 	}
@@ -60,8 +58,14 @@ func CreateValidatingWebhook(k8sClient *kubernetes.Clientset) error {
 			{
 				Name: "pod-webhook.some.cn",
 				NamespaceSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"kubernetes.io/metadata.name": "default",
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      "kubernetes.io/metadata.name",
+							Operator: "In",
+							Values: []string{
+								"default",
+							},
+						},
 					},
 				},
 				Rules: []v1.RuleWithOperations{
@@ -107,26 +111,4 @@ func CreateValidatingWebhook(k8sClient *kubernetes.Clientset) error {
 	slog.Info("validatingWebhookConfiguration create success", "name", valid_webhook.Name, "namespace", valid_webhook.Namespace)
 
 	return nil
-}
-
-func getCaBundle(k8sClient *kubernetes.Clientset, secretName, secretNamespace string) ([]byte, error) {
-
-	s, err := k8sClient.CoreV1().Secrets(secretNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	d, ok := s.Data["ca.crt"]
-	if !ok {
-		return nil, fmt.Errorf("ca.crt not found in secret %s/%s.Data", secretName, secretNamespace)
-	}
-	return d, nil
-}
-
-func CheckCertCrdExits(client *apiextv1.Clientset) bool {
-	_, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "certificates.cert-manager.io", metav1.GetOptions{})
-	if err != nil {
-		slog.Error("check cert crd", "msg", err)
-	}
-	return err == nil
 }

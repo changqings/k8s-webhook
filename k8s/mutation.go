@@ -18,8 +18,24 @@ func MutatingPod() *admission.Webhook {
 	return &admission.Webhook{
 		Handler: admission.HandlerFunc(
 			func(ctx context.Context, req admission.Request) admission.Response {
-				if req.AdmissionRequest.Operation == admission_v1.Create {
-					slog.Info("create pod patch labels")
+				if req.AdmissionRequest.Operation == admission_v1.Create ||
+					req.AdmissionRequest.Operation == admission_v1.Update {
+					slog.Info("create pod patch labels", "namespace", req.Namespace)
+					// patch path should exsits, you should check the patch in admission request
+					// for example, if pod has no labels at beginning, the path="/metadata/labels/aa"
+					// can not be created. And you should use path="/metadata/labels" and and value=<map[string]string>
+
+					// Also you can get k8s object, and check the path
+					// obj := &unstructured.Unstructured{}
+					// if err := json.Unmarshal(req.Object.Raw, obj); err != nil {
+					// 	return admission.Errored(http.StatusBadRequest, err)
+					// }
+
+					// _, found, err := unstructured.NestedFieldCopy(obj.Object, "spec", "dnsConfig")
+					// if err != nil {
+					// 	return admission.Errored(http.StatusInternalServerError, err)
+					// }
+
 					return admission.Patched(
 						"add label",
 						jsonpatch.JsonPatchOperation{
@@ -39,7 +55,7 @@ func MutatingPod() *admission.Webhook {
 func CreateMutatingWebhook(k8sClient *kubernetes.Clientset) error {
 
 	mutateServiceName := strings.Split(webhookServiceName, ".")[0]
-	caCrt, err := getCaBundle(k8sClient, webhookSecretName, webhookNamespace)
+	caCrt, err := GetCaBundle(k8sClient, webhookSecretName, webhookNamespace)
 	if err != nil {
 		return err
 	}
@@ -53,8 +69,14 @@ func CreateMutatingWebhook(k8sClient *kubernetes.Clientset) error {
 			{
 				Name: "pod-webhook.some.cn",
 				NamespaceSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"kubernetes.io/metadata.name": "default",
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      "kubernetes.io/metadata.name",
+							Operator: "In",
+							Values: []string{
+								"default",
+							},
+						},
 					},
 				},
 				Rules: []v1.RuleWithOperations{
