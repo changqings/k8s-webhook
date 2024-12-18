@@ -14,11 +14,11 @@ import (
 	k8s_error "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-type MutatePod struct{}
+type MutatePod struct {
+}
 
 func NewMutatePod() *MutatePod {
 	return &MutatePod{}
@@ -32,7 +32,6 @@ func (mp *MutatePod) MutateHandler() *admission.Webhook {
 					slog.Info("create pod patch labels", "namespace", req.Namespace)
 
 					pod := corev1.Pod{}
-					decoder := admission.NewDecoder(scheme.Scheme)
 
 					err := decoder.Decode(req, &pod)
 					if err != nil {

@@ -13,7 +13,6 @@ import (
 	k8s_error "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -22,13 +21,13 @@ type ValitePod struct{}
 func NewValitePod() *ValitePod {
 	return &ValitePod{}
 }
+
 func (vp *ValitePod) ValiteHandler() *admission.Webhook {
 	return &admission.Webhook{
 		Handler: admission.HandlerFunc(
 			func(ctx context.Context, req admission.Request) admission.Response {
 				if req.AdmissionRequest.Operation == admission_v1.Delete {
 					pod := corev1.Pod{}
-					decoder := admission.NewDecoder(scheme.Scheme)
 
 					err := decoder.DecodeRaw(req.Object, &pod)
 					if err != nil {
