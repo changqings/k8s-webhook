@@ -2,40 +2,48 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 
 	admission_v1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8s_error "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-func ValidatingPod(k8sClient *kubernetes.Clientset) *admission.Webhook {
+type ValitePod struct{}
+
+func NewValitePod() *ValitePod {
+	return &ValitePod{}
+}
+func (vp *ValitePod) ValiteHandler() *admission.Webhook {
 	return &admission.Webhook{
 		Handler: admission.HandlerFunc(
 			func(ctx context.Context, req admission.Request) admission.Response {
-				podCanNotBeDeleted := false
+				if req.AdmissionRequest.Operation == admission_v1.Delete {
+					pod := corev1.Pod{}
+					decoder := admission.NewDecoder(scheme.Scheme)
 
-				podName := req.Name
-				podNamespace := req.Namespace
+					err := decoder.DecodeRaw(req.Object, &pod)
+					if err != nil {
+						slog.Error("decode pod error", "error", err)
+						return admission.Errored(http.StatusBadRequest, err)
+					}
 
-				pod, err := k8sClient.CoreV1().Pods(podNamespace).Get(ctx, podName, metav1.GetOptions{})
-				if err != nil {
-					return admission.ValidationResponse(false, "get pod error")
+					v, ok := pod.Labels["allow-delete"]
+					if ok && v == "false" {
+						return admission.ValidationResponse(false, "not allow by webhook")
+					}
+
+					return admission.ValidationResponse(true, "pod not have label allow-delete=true, can be deleted")
 				}
-
-				if v, ok := pod.Labels["allow-delete"]; ok && v == "false" {
-					podCanNotBeDeleted = true
-				}
-
-				if req.Operation == admission_v1.Delete && podCanNotBeDeleted {
-					slog.Info("pod can not be deleted with labels allow-delete=false", "name", req.Name, "namespace", req.Namespace)
-					return admission.ValidationResponse(false, "not allow by webhook")
-				}
-				return admission.ValidationResponse(true, "ok")
+				return admission.ValidationResponse(true, fmt.Sprintf("get pod req.Operation = %s, skip validate", req.AdmissionRequest.Operation))
 			},
 		),
 	}

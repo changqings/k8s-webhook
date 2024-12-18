@@ -50,8 +50,10 @@ func main() {
 		KeyName:  k8s.KeyName,
 		Port:     int(k8s.TLSPort)})
 
-	server.Register(k8s.WebhookValidPath, k8s.ValidatingPod(k8sC).WithRecoverPanic(true))
-	server.Register(k8s.WebhookMutatePath, k8s.MutatingPod().WithRecoverPanic(true))
+	valitePod := k8s.NewValitePod()
+	mutatePod := k8s.NewMutatePod()
+	server.Register(k8s.WebhookValidPath, valitePod.ValiteHandler().WithRecoverPanic(true))
+	server.Register(k8s.WebhookMutatePath, mutatePod.MutateHandler().WithRecoverPanic(true))
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
 	defer cancel()

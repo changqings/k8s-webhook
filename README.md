@@ -3,19 +3,17 @@
 - need cert-manager generate tls cert/key
 
 ### validationg webhook
-- 实现逻辑在`k8s/validation.go`
-- pod 打了标签`allow-delete=false`, cannot be delete
+- logical in `k8s/validation.go`, change it whth your need
 ### mutating webhook
-- 实现逻辑在`k8s/mutating.go`
-- 创建 pod 时，自动添加标签`k8s-webhook=test`
+- logical in `k8s/mutating.go`, change with your need
+
 ### usage
-- 快速实现webhook功能
+- as template, you can copy it and modify logical
 - copy this repo, and write your own logic
-- Makefile部署,change VERSION_TAG|REGISTRY_HOST,`make deploy-k8s`
+- change VERSION_TAG|REGISTRY_HOST of Makefile `make deploy-k8s`
 
 
 ## License
-
 Copyright 2023 changqings.
 
 Licensed under the Apache License, Version 2.0 (the "License");

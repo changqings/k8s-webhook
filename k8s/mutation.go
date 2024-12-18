@@ -2,51 +2,61 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 
-	"gomodules.xyz/jsonpatch/v2"
 	admission_v1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8s_error "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-func MutatingPod() *admission.Webhook {
+type MutatePod struct{}
+
+func NewMutatePod() *MutatePod {
+	return &MutatePod{}
+}
+func (mp *MutatePod) MutateHandler() *admission.Webhook {
 	return &admission.Webhook{
 		Handler: admission.HandlerFunc(
 			func(ctx context.Context, req admission.Request) admission.Response {
 				if req.AdmissionRequest.Operation == admission_v1.Create ||
 					req.AdmissionRequest.Operation == admission_v1.Update {
 					slog.Info("create pod patch labels", "namespace", req.Namespace)
-					// patch path should exsits, you should check the patch in admission request
-					// for example, if pod has no labels at beginning, the path="/metadata/labels/aa"
-					// can not be created. And you should use path="/metadata/labels" and and value=<map[string]string>
 
-					// Also you can get k8s object, and check the path
-					// obj := &unstructured.Unstructured{}
-					// if err := json.Unmarshal(req.Object.Raw, obj); err != nil {
-					// 	return admission.Errored(http.StatusBadRequest, err)
-					// }
+					pod := corev1.Pod{}
+					decoder := admission.NewDecoder(scheme.Scheme)
 
-					// _, found, err := unstructured.NestedFieldCopy(obj.Object, "spec", "dnsConfig")
-					// if err != nil {
-					// 	return admission.Errored(http.StatusInternalServerError, err)
-					// }
+					err := decoder.Decode(req, &pod)
+					if err != nil {
+						return admission.Errored(http.StatusBadRequest, err)
+					}
 
-					return admission.Patched(
-						"add label",
-						jsonpatch.JsonPatchOperation{
-							Operation: "add",
-							Path:      "/metadata/labels/k8s-webhook",
-							Value:     "test",
-						},
-					)
-				} else {
-					return admission.Allowed("ok")
+					if pod.Labels == nil {
+						pod.Labels = make(map[string]string)
+					}
+					v, ok := pod.Labels["k8s-webhook"]
+					if ok && v == "test" {
+						slog.Error("pod labels k8s-webhook=test have exist, skip")
+						return admission.Allowed("pod labels k8s-webhook=test have exist, skip")
+					}
+					pod.Labels["k8s-webhook"] = "test"
+
+					pb, err := json.Marshal(pod)
+					if err != nil {
+						slog.Error("marshal pod labels error", "error", err)
+						return admission.Errored(http.StatusInternalServerError, err)
+					}
+					return admission.PatchResponseFromRaw(req.Object.Raw, pb)
 				}
+				return admission.Allowed(fmt.Sprintf("get pod req.Operation = %s,skip mutate", req.AdmissionRequest.Operation))
 			},
 		),
 	}

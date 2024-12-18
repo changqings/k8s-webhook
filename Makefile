@@ -1,4 +1,4 @@
-VERSION_TAG ?= validating-v0.1.0
+VERSION_TAG ?= v0.1.1
 REGISTRY_ADDR ?= ccr.ccs.tencentyun.com/public-proxy/k8s-webhook
 
 build:
