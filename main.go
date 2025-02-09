@@ -12,13 +12,15 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
 	defer cancel()
 
-	go func(ctx context.Context) {
-		err := handler.HealthCheck(ctx)
+	// run health check in a goroutine
+	go func() {
+		err := handler.HealthCheck()
 		if err != nil {
 			panic(err)
 		}
-	}(ctx)
+	}()
 
+	// run webhook server
 	webhookClient := handler.NewWebHookClient()
 	webhookServer, err := webhookClient.GetWebHookServer()
 	if err != nil {
