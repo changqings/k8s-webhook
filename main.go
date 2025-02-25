@@ -2,13 +2,22 @@ package main
 
 import (
 	"context"
+	"flag"
 	"k8s-webhook/handler"
 	"log"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
+var (
+	applyNamespace string
+)
+
 func main() {
+
+	flag.StringVar(&applyNamespace, "namespaces", "default", "namespace to apply the webhook,if have many namespace,use comma to split, like: default,kube-system")
+	flag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
@@ -21,8 +30,9 @@ func main() {
 		}
 	}()
 
+	applyNamespaces := strings.Split(applyNamespace, ",")
 	// run webhook server
-	webhookClient, err := handler.NewWebHookClient()
+	webhookClient, err := handler.NewWebHookClient(applyNamespaces)
 	if err != nil {
 		log.Fatalf("main.NewWebHookClient err=%v\n", err)
 	}

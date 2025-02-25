@@ -1,4 +1,4 @@
-package k8s
+package k8swebhook
 
 import (
 	"context"
@@ -61,7 +61,7 @@ func (mp *MutatePod) MutateHandler() *admission.Webhook {
 	}
 }
 
-func CreateMutatingWebhook(k8sClient *kubernetes.Clientset) error {
+func CreateMutatingWebhook(k8sClient *kubernetes.Clientset, namespaces []string) error {
 
 	mutateServiceName := strings.Split(webhookServiceName, ".")[0]
 	caCrt, err := GetCaBundle(k8sClient, webhookSecretName, webhookNamespace)
@@ -82,9 +82,7 @@ func CreateMutatingWebhook(k8sClient *kubernetes.Clientset) error {
 						{
 							Key:      "kubernetes.io/metadata.name",
 							Operator: "In",
-							Values: []string{
-								"default",
-							},
+							Values:   namespaces,
 						},
 					},
 				},

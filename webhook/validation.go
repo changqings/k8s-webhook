@@ -1,4 +1,4 @@
-package k8s
+package k8swebhook
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func (vp *ValitePod) ValiteHandler() *admission.Webhook {
 	}
 }
 
-func CreateValidatingWebhook(k8sClient *kubernetes.Clientset) error {
+func CreateValidatingWebhook(k8sClient *kubernetes.Clientset, namespaces []string) error {
 
 	validatingServiceName := strings.Split(webhookServiceName, ".")[0]
 	caCrt, err := GetCaBundle(k8sClient, webhookSecretName, webhookNamespace)
@@ -69,9 +69,7 @@ func CreateValidatingWebhook(k8sClient *kubernetes.Clientset) error {
 						{
 							Key:      "kubernetes.io/metadata.name",
 							Operator: "In",
-							Values: []string{
-								"default",
-							},
+							Values:   namespaces,
 						},
 					},
 				},

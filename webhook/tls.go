@@ -1,4 +1,4 @@
-package k8s
+package k8swebhook
 
 import (
 	"context"
@@ -37,6 +37,9 @@ var (
 	webhookCertName    = "webhook-cert"
 	webhookSecretName  = "webhook-tls"
 	webhookServiceName = "pod-webhook.default.svc"
+	// cert expire time
+	CertExpireTime = 365 * 100 * 24 * time.Hour
+	CertRenewTime  = 10 * 24 * time.Hour
 )
 
 func SetUpCertManager(k8sClient *kubernetes.Clientset, certClient *versioned.Clientset) error {
@@ -60,9 +63,11 @@ func SetUpCertManager(k8sClient *kubernetes.Clientset, certClient *versioned.Cli
 			Namespace: "cert-manager", // cert-manager root ns, for cluster-scope clusterIsser use
 		},
 		Spec: certmanager_v1.CertificateSpec{
-			IsCA:       true,
-			CommonName: caName,
-			SecretName: caSecretName,
+			IsCA:        true,
+			CommonName:  caName,
+			SecretName:  caSecretName,
+			Duration:    &metav1.Duration{Duration: CertExpireTime},
+			RenewBefore: &metav1.Duration{Duration: CertRenewTime},
 			PrivateKey: &certmanager_v1.CertificatePrivateKey{
 				Algorithm: certmanager_v1.ECDSAKeyAlgorithm,
 				Size:      256,
@@ -95,8 +100,9 @@ func SetUpCertManager(k8sClient *kubernetes.Clientset, certClient *versioned.Cli
 			Namespace: webhookNamespace,
 		},
 		Spec: certmanager_v1.CertificateSpec{
-			SecretName: webhookSecretName,
-			Duration:   &metav1.Duration{Duration: 365 * 10 * 24 * time.Hour},
+			SecretName:  webhookSecretName,
+			Duration:    &metav1.Duration{Duration: CertExpireTime},
+			RenewBefore: &metav1.Duration{Duration: CertRenewTime},
 			IssuerRef: cm_metav1.ObjectReference{
 				Name:  clusterIssuer,
 				Kind:  certmanager_v1.ClusterIssuerKind,
@@ -183,7 +189,7 @@ func genCertFile(k8sClient *kubernetes.Clientset, secretName, secretNamespace st
 		return fmt.Errorf("tls.key not found in %s/%s.Data", s.Namespace, s.Name)
 	}
 
-	err = genCertFileFromBytes(tlsCrt, tlsKey)
+	err = genCertFileFromByte(tlsCrt, tlsKey)
 	if err != nil {
 		return err
 	}
@@ -191,7 +197,7 @@ func genCertFile(k8sClient *kubernetes.Clientset, secretName, secretNamespace st
 	return nil
 }
 
-func genCertFileFromBytes(tlsCrt, tlsKey []byte) error {
+func genCertFileFromByte(tlsCrt, tlsKey []byte) error {
 	certCrtPath := filepath.Join(homedir.HomeDir(), TLSCertDir)
 	certKeyPath := filepath.Join(homedir.HomeDir(), TLSCertDir)
 
