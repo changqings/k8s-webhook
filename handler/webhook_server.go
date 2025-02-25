@@ -22,11 +22,19 @@ type WebhookClient struct {
 	CrdClient  *apiextv1.Clientset
 }
 
-func NewWebHookClient() *WebhookClient {
+func NewWebHookClient() (*WebhookClient, error) {
+	kubeconfig := k8scrdClient.GetKubeConfig()
 
-	restConfig := k8scrdClient.GetRestConfig()
+	restConfig, err := k8scrdClient.GetRestConfig(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
 
-	k8sC := k8scrdClient.GetClient()
+	k8sC, err := k8scrdClient.GetClient(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	certC := versioned.NewForConfigOrDie(restConfig)
 	crdC := apiextv1.NewForConfigOrDie(restConfig)
 
@@ -34,12 +42,19 @@ func NewWebHookClient() *WebhookClient {
 		K8sClient:  k8sC,
 		CertClient: certC,
 		CrdClient:  crdC,
-	}
+	}, nil
 }
 
 func (wc *WebhookClient) GetWebHookServer() (webhook.Server, error) {
 
 	log.SetLogger(klog.LoggerWithName(logr.Logger{}, "k8s-webhook"))
+
+	// new webhook server
+	server := webhook.NewServer(webhook.Options{
+		CertDir:  filepath.Join(homedir.HomeDir(), k8s.TLSCertDir),
+		CertName: k8s.CertName,
+		KeyName:  k8s.KeyName,
+		Port:     int(k8s.TLSPort)})
 
 	// check crd cert
 	if !k8s.CheckCertCrdExits(wc.CrdClient) {
@@ -51,27 +66,21 @@ func (wc *WebhookClient) GetWebHookServer() (webhook.Server, error) {
 		return nil, err
 	}
 
-	//
+	// validate webhook
 	err = k8s.CreateValidatingWebhook(wc.K8sClient)
 	if err != nil {
 		return nil, err
 	}
 
+	valitePod := k8s.NewValitePod()
+	server.Register(k8s.WebhookValidPath, valitePod.ValiteHandler().WithRecoverPanic(true))
+
+	// mutate webhook
 	err = k8s.CreateMutatingWebhook(wc.K8sClient)
 	if err != nil {
 		return nil, err
 	}
-
-	server := webhook.NewServer(webhook.Options{
-		CertDir:  filepath.Join(homedir.HomeDir(), k8s.TLSCertDir),
-		CertName: k8s.CertName,
-		KeyName:  k8s.KeyName,
-		Port:     int(k8s.TLSPort)})
-
-	valitePod := k8s.NewValitePod()
 	mutatePod := k8s.NewMutatePod()
-
-	server.Register(k8s.WebhookValidPath, valitePod.ValiteHandler().WithRecoverPanic(true))
 	server.Register(k8s.WebhookMutatePath, mutatePod.MutateHandler().WithRecoverPanic(true))
 
 	return server, nil

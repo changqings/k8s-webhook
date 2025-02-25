@@ -151,10 +151,17 @@ func SetUpCertManager(k8sClient *kubernetes.Clientset, certClient *versioned.Cli
 	}
 	slog.Info("myCert create success", "name", myCert.Name, "namespace", myCert.Namespace)
 
-	<-time.After(time.Second * 5)
+	<-time.After(time.Second * 15)
 	// create certfile in cert dir
-	if err := genCertFile(k8sClient, webhookSecretName, webhookNamespace); err != nil {
-		return err
+	retryTime := 3
+	for range retryTime {
+		err := genCertFile(k8sClient, webhookSecretName, webhookNamespace)
+		if err != nil {
+			slog.Error("genCertFile failed", "error", err)
+			continue
+		}
+		slog.Info("genCertFile success")
+		time.Sleep(time.Hour * 10)
 	}
 
 	return nil
